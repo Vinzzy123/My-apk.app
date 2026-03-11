@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>THE FALLEN - OWNER 3D SIMULATOR</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; }
+        canvas { display: block; }
+        #label-container, #ui-container { position: absolute; top: 0; left: 0; color: white; pointer-events: none; width: 100%; height: 100%; }
+        .label { position: absolute; padding: 2px 5px; border-radius: 3px; font-weight: bold; text-align: center; transform: translate(-50%, -100%); text-shadow: 1px 1px 2px #000; }
+        .admin-tag { color: #0f0; border: 1px solid #0f0; padding: 1px 3px; font-size: 10px; margin-right: 5px; }
+        #admin-panel { position: absolute; bottom: 10px; left: 10px; pointer-events: auto; background: rgba(0,0,0,0.8); border: 1px solid #0f0; padding: 5px; color: #0f0; display: none; }
+        #command-input { background: #000; border: 1px solid #0f0; color: #0f0; width: 200px; padding: 3px; }
+    </style>
+</head>
+<body>
+    <div id="label-container"></div>
+    <div id="ui-container">
+        <div id="admin-panel">
+            [ADMIN CMD]> <input type="text" id="command-input" placeholder="Ketik command, Bngsat!">
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighLightShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+    <script>
+        // --- SETUP SCENE, ANJING! ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // --- CAHAYA MATAHARI ---
+        scene.add(new THREE.AmbientLight(0x404040));
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 10, 7.5);
+        scene.add(directionalLight);
+
+        // --- CAMERA CONTROLS (360 DERAJAT) ---
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 20;
+        camera.position.set(0, 5, 12);
+        controls.update();
+
+        // --- GUNUNG SUNDA 3D VISUAL EFFEK ---
+        const mountainGeo = new THREE.ConeGeometry(5, 8, 32);
+        const mountainMat = new THREE.MeshPhongMaterial({ color: 0x228B22 });
+        const mountain = new THREE.Mesh(mountainGeo, mountainMat);
+        mountain.position.y = 4;
+        scene.add(mountain);
+
+        const glowGeo = new THREE.ConeGeometry(5.2, 8.2, 32);
+        const glowMat = new THREE.MeshPhongMaterial({ color: 0x00ff00, transparent: true, opacity: 0.1 });
+        const mountainGlow = new THREE.Mesh(glowGeo, glowMat);
+        mountainGlow.position.y = 4;
+        scene.add(mountainGlow);
+
+        // --- TANAH / LANTAI ---
+        const floorGeo = new THREE.PlaneGeometry(100, 100);
+        const floorMat = new THREE.MeshPhongMaterial({ color: 0x1a5e1a });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
+
+        // --- PLAYERS DATA, BNGSAT! ---
+        const labelContainer = document.getElementById('label-container');
+        const adminPanel = document.getElementById('admin-panel');
+        const commandInput = document.getElementById('command-input');
+        
+        const players = {
+            asep: { name: "ASEP", role: "OWNER", color: 0x00ff00, x: 2, z: 2, labelColor: "#0f0" },
+            kakak: { name: "KAKAK", role: "KAKAK JAHANAM", color: 0xff0000, x: -2, z: -2, labelColor: "#f00" }
+        };
+
+        const itemData = [
+            { name: "Pedang Lag Jahanam", type: "ADMIN_ITEM", ownerId: 'asep', color: "#ff00ff" }
+        ];
+
+        // --- CREATE PLAYER MESHES, BNGSAT! ---
+        Object.keys(players).forEach(key => {
+            const p = players[key];
+            const geo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+            const mat = new THREE.MeshPhongMaterial({ color: p.color });
+            p.mesh = new THREE.Mesh(geo, mat);
+            p.mesh.position.set(p.x, 0.4, p.z);
+            scene.add(p.mesh);
+
+            // Neon Effect buat Owner
+            if(p.role === "OWNER") {
+                const glowGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+                const glowMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 });
+                const ownerGlow = new THREE.Mesh(glowGeo, glowMat);
+                p.mesh.add(ownerGlow);
+            }
+
+            // HTML Labels
+            p.element = document.createElement('div');
+            p.element.className = 'label';
+            p.element.style.color = p.labelColor;
+            const adminTag = p.role === "OWNER" ? '<span class="admin-tag">[OWNER]</span>' : '';
+            p.element.innerHTML = `${adminTag}${p.name}`;
+            labelContainer.appendChild(p.element);
+        });
+
+        // --- CREATE ADMIN ITEMS, KAMPRET! ---
+        itemData.forEach(item => {
+            const owner = players[item.ownerId];
+            const geo = new THREE.TetrahedronGeometry(0.3);
+            const mat = new THREE.MeshPhongMaterial({ color: 0xff00ff });
+            item.mesh = new THREE.Mesh(geo, mat);
+            scene.add(item.mesh);
+
+            // HTML Item Label
+            item.element = document.createElement('div');
+            item.element.className = 'label';
+            item.element.style.color = item.color;
+            item.element.style.fontSize = "10px";
+            item.element.innerHTML = `[ITEM] ${item.name}`;
+            labelContainer.appendChild(item.element);
+        });
+
+        // --- BLOOM EFFECTS (NEON), ANJING! ---
+        const renderScene = new THREE.RenderPass(scene, camera);
+        const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0.1;
+        bloomPass.strength = 1.0;
+        bloomPass.radius = 0.5;
+
+        const composer = new THREE.EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // --- PLAYER CONTROLS (ASEP), KAMPRET! ---
+        const asep = players.asep;
+        const keys = {};
+        window.addEventListener('keydown', (e) => { keys[e.key] = true; if(e.key === '/') toggleAdminPanel(); });
+        window.addEventListener('keyup', (e) => keys[e.key] = false);
+
+        // --- ADMIN COMMANDS, BNGSAT! ---
+        function toggleAdminPanel() {
+            adminPanel.style.display = adminPanel.style.display === "block" ? "none" : "block";
+            if(adminPanel.style.display === "block") commandInput.focus();
+        }
+
+        commandInput.addEventListener('keydown', (e) => {
+            if(e.key === "Enter") {
+                const cmd = commandInput.value.toLowerCase();
+                commandInput.value = "";
+                executeCommand(cmd);
+            }
+        });
+
+        function executeCommand(cmd) {
+            if(cmd.startsWith("/lag")) {
+                players.kakak.role = "PUSING TOTAL, ANJING!";
+                players.kakak.labelColor = "#ff0";
+                players.kakak.mesh.material.color.setHex(0xffff00);
+            } else if (cmd.startsWith("/ban")) {
+                scene.remove(players.kakak.mesh);
+                players.kakak.element.innerHTML = "[BANNED BY OWNER]";
+                players.kakak.labelColor = "#888";
+            }
+        }
+
+        // --- ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+
+            // Asep Movement
+            if(keys['w'] || keys['ArrowUp']) asep.mesh.position.z -= 0.1;
+            if(keys['s'] || keys['ArrowDown']) asep.mesh.position.z += 0.1;
+            if(keys['a'] || keys['ArrowLeft']) asep.mesh.position.x -= 0.1;
+            if(keys['d'] || keys['ArrowRight']) asep.mesh.position.x += 0.1;
+
+            // Update Player Labels
+            Object.keys(players).forEach(key => {
+                const p = players[key];
+                const vector = p.mesh.position.clone();
+                vector.y += 1.2;
+                vector.project(camera);
+                const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+                const y = (vector.y * -0.5 + 0.5) * window.innerHeight;
+                p.element.style.left = `${x}px`;
+                p.element.style.top = `${y}px`;
+
+                // Kakak Jahanam AI (Pusing)
+                if(p.role.includes("JAHANAM") || p.role.includes("PUSING")) {
+                    p.mesh.rotation.y += 0.1;
+                    p.mesh.position.x += Math.sin(Date.now() / 500) * 0.05;
+                }
+            });
+
+            // Update Item Labels & Pos (Melayang deket Asep)
+            itemData.forEach(item => {
+                const owner = players[item.ownerId];
+                item.mesh.position.set(owner.mesh.position.x + 0.5, owner.mesh.position.y + 0.2, owner.mesh.position.z - 0.5);
+                item.mesh.rotation.y += 0.02;
+
+                const vector = item.mesh.position.clone();
+                vector.project(camera);
+                const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+                const y = (vector.y * -0.5 + 0.5) * window.innerHeight;
+                item.element.style.left = `${x}px`;
+                item.element.style.top = `${y}px`;
+            });
+
+            // Render with Bloom
+            composer.render();
+        }
+        animate();
+
+        // Responsive
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
